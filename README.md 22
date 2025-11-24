@@ -1,0 +1,193 @@
+# Siddharth-Associates-Task22 
+# Creating Power BI mockup images, theme JSON, and a build guide file.
+from PIL import Image, ImageDraw, ImageFont
+import json
+import os
+from textwrap import wrap
+
+out_dir = "/mnt/data"
+os.makedirs(out_dir, exist_ok=True)
+
+# Helper to draw a mockup page
+def create_mockup(path, title, elements):
+    W, H = 1200, 700
+    img = Image.new("RGB", (W, H), (250,250,250))
+    d = ImageDraw.Draw(img)
+    # Title bar
+    d.rectangle([0,0,W,80], fill=(30,41,59))
+    try:
+        font_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
+        font_h = ImageFont.truetype("DejaVuSans.ttf", 16)
+    except:
+        font_title = ImageFont.load_default()
+        font_h = ImageFont.load_default()
+    d.text((20,22), title, fill=(255,255,255), font=font_title)
+    # Draw KPI cards
+    x = 20
+    y = 100
+    card_w = 260
+    card_h = 90
+    for kpi in elements.get("kpis", []):
+        d.rectangle([x,y,x+card_w,y+card_h], fill=(255,255,255), outline=(200,200,200))
+        d.text((x+12,y+12), kpi["label"], fill=(100,100,100), font=font_h)
+        d.text((x+12,y+42), kpi["value"], fill=(20,20,20), font=font_h)
+        x += card_w + 20
+    # Main charts
+    charts = elements.get("charts", [])
+    cy = 220
+    cx = 20
+    for chart in charts:
+        d.rectangle([cx,cy,cx+560,cy+300], fill=(255,255,255), outline=(200,200,200))
+        d.text((cx+12,cy+12), chart["title"], fill=(40,40,40), font=font_h)
+        # draw placeholder bars or lines
+        if chart.get("type") == "bar":
+            # bars
+            for i in range(6):
+                bx = cx + 30 + i*80
+                by = cy + 250 - (i+1)*30
+                d.rectangle([bx, by, bx+40, cy+250], fill=(79,70,229))
+        elif chart.get("type") == "line":
+            # line
+            points = [(cx+30+i*85, cy+250 - (i%5)*30) for i in range(6)]
+            d.line(points, fill=(16,185,129), width=3)
+            for p in points:
+                d.ellipse([p[0]-4,p[1]-4,p[0]+4,p[1]+4], fill=(16,185,129))
+        elif chart.get("type") == "pie":
+            d.pieslice([cx+200,cy+60,cx+420,cy+280], 0, 200, fill=(234,88,12))
+            d.pieslice([cx+200,cy+60,cx+420,cy+280], 200, 320, fill=(79,70,229))
+            d.pieslice([cx+200,cy+60,cx+420,cy+280], 320, 360, fill=(16,185,129))
+        cx += 600
+        if cx > 700:
+            cx = 20
+            cy += 320
+    # Side pane for slicers
+    d.rectangle([920,100,1160,600], fill=(255,255,255), outline=(200,200,200))
+    d.text((930,110), "Slicers", fill=(80,80,80), font=font_h)
+    slicers = elements.get("slicers", [])
+    sy = 140
+    for s in slicers:
+        d.rectangle([930,sy,1150,sy+36], fill=(245,245,245), outline=(220,220,220))
+        d.text((938,sy+8), s, fill=(50,50,50), font=font_h)
+        sy += 46
+    img.save(path)
+
+# Create Executive Summary mockup
+exec_elements = {
+    "kpis": [
+        {"label":"Total Imports (USD)","value":"$1,234,567"},
+        {"label":"Total Exports (USD)","value":"$987,654"},
+        {"label":"Net Trade (USD)","value":"-$246,913"},
+        {"label":"Avg Duty %","value":"9.8%"}
+    ],
+    "charts": [
+        {"title":"Yearly Import vs Export Values","type":"line"},
+        {"title":"Import Value by Country","type":"bar"},
+        {"title":"Top 5 Products by Value","type":"bar"},
+        {"title":"HSN Code Contribution (Treemap)","type":"pie"}
+    ],
+    "slicers": ["Year","Trade Type","Country","Product"]
+}
+exec_path = os.path.join(out_dir,"powerbi_mockup_executive.png")
+create_mockup(exec_path, "Executive Summary - Trade Dashboard", exec_elements)
+
+# Create Drilldown mockup
+drill_elements = {
+    "kpis": [
+        {"label":"Selected Product Value","value":"$345,678"},
+        {"label":"Avg Unit Price","value":"$1.23"},
+        {"label":"Top Supplier Value","value":"$120,000"},
+        {"label":"Landed Cost/Unit","value":"₹45.60"}
+    ],
+    "charts": [
+        {"title":"Monthly Value for Selected Model","type":"line"},
+        {"title":"Supplier Comparison (Unit Price)","type":"bar"},
+        {"title":"Capacity vs Landed Cost (Scatter)","type":"bar"},
+        {"title":"Duty % Distribution","type":"pie"}
+    ],
+    "slicers": ["Year","Supplier","Model","HSN Code"]
+}
+drill_path = os.path.join(out_dir,"powerbi_mockup_drilldown.png")
+create_mockup(drill_path, "Model Drill-down - Trade Dashboard", drill_elements)
+
+# Save Power BI theme JSON
+theme = {
+    "name": "Siddharth Trade Theme",
+    "dataColors": ["#4f46e5","#10b981","#ef4444","#f59e0b","#06b6d4","#8b5cf6"],
+    "background": "#ffffff",
+    "foreground": "#1f2937",
+    "tableAccent": "#4f46e5"
+}
+theme_path = os.path.join(out_dir,"powerbi_theme.json")
+with open(theme_path,"w") as f:
+    json.dump(theme,f, indent=2)
+
+# Save build guide
+guide_text = f"""
+Power BI Build Guide - Trade Dashboard
+Dataset path (local): /mnt/data/import_export_dashboard.xlsx
+
+1) Data load
+- Open Power BI Desktop.
+- Home -> Get Data -> Excel -> Select the file at:
+  /mnt/data/import_export_dashboard.xlsx
+- Load both 'Imports' and 'Exports' sheets (or combine into one table 'Data').
+
+2) Data preparation (Power Query)
+- Merge Imports and Exports into a single table:
+  Add Column -> Custom Column: if 'Trade Type' missing, set manually.
+- Ensure data types:
+  Date -> Date
+  Year -> Whole Number
+  Qty -> Whole Number
+  Unit Price/Total Value -> Decimal
+  Duty % -> Whole Number
+- Create a 'Grand Total (INR)' column in Power Query or in DAX if you have INR data:
+  e.g., Grand Total = [Total Value] + [Duty Amount]
+
+3) Create relationships
+- If you create separate lookup tables (Products, Countries), link on Product or Country.
+
+4) Important DAX measures (create in Modeling -> New Measure)
+- Total Imports = CALCULATE(SUM(Data[Total Value]), Data[Trade Type] = "Import")
+- Total Exports = CALCULATE(SUM(Data[Total Value]), Data[Trade Type] = "Export")
+- Net Trade = [Total Exports] - [Total Imports]
+- Avg Duty % = AVERAGEX(VALUES(Data[Date]), Data[Duty %])
+- Total Qty = SUM(Data[Qty])
+- Grand Total INR (example) = SUM(Data[Total Value INR]) + SUM(Data[Duty Paid INR])
+
+5) Visuals to create (Executive page)
+- Cards: Total Imports, Total Exports, Net Trade, Avg Duty %, Total Qty
+- Line chart: Year on X, Total Value on Y, Legend by Trade Type
+- Clustered Bar: Country on Y, Total Value on X (Top N filter)
+- Donut/Pie: Export share by Country
+- Treemap: HSN Code -> Product -> Sum of Total Value
+- Slicers: Year, Trade Type, Country, Product, Supplier
+
+6) Drilldown page (Model level)
+- Filters: Product selection
+- Line: Monthly trend for selected model (use Date hierarchy -> Month)
+- Bar: Supplier comparison (Average unit price)
+- Scatter: Capacity (numeric) on X vs Landed Cost per Unit on Y
+
+7) Formatting & Theme
+- Home -> Switch Theme -> Import Theme -> select powerbi_theme.json
+- Use consistent fonts, data labels and tooltips.
+
+8) Export
+- File -> Export -> Power BI template (.pbit) or publish to Power BI Service.
+
+Files created:
+- Excel dataset: /mnt/data/import_export_dashboard.xlsx
+- Mockup images:
+  - {exec_path}
+  - {drill_path}
+- Theme JSON: {theme_path}
+
+"""
+guide_path = os.path.join(out_dir,"powerbi_build_guide.txt")
+with open(guide_path,"w") as f:
+    f.write(guide_text)
+
+# Return paths for user
+exec_path, drill_path, theme_path, guide_path, os.path.join(out_dir,"import_export_dashboard.xlsx")
+
